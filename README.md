@@ -107,10 +107,10 @@ Yakut, I., et al. (2015). arXiv:1512.03632
 
 ---
 
-## Author
-
+## 👤 Author
 **Niranjan K C**  
 Data Analyst | B.S. Information Technology — Towson University, May 2026  
-[LinkedIn](https://www.linkedin.com/in/niranjan-k-c-44b681334/) · 
-[GitHub](https://github.com/niranjanKC-analytics) · 
-[Tableau](https://public.tableau.com/app/profile/niranjan.k.c5704/vizzes)
+
+[![GitHub](https://img.shields.io/badge/GitHub-niranjanKC--analytics-black?logo=github)](https://github.com/niranjanKC-analytics)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Niranjan%20K%20C-blue?logo=linkedin)](https://www.linkedin.com/in/niranjan-k-c-44b681334/)
+[![Tableau](https://img.shields.io/badge/Tableau-Portfolio-orange?logo=tableau)](https://public.tableau.com/app/profile/niranjan.k.c5704/vizzes)
