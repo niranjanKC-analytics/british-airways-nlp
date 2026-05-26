@@ -101,8 +101,7 @@ british-airways-nlp/
 
 ## References
 
-Chaudhary, A., & Risinahani, M. (2023). Airline reviews. Kaggle.  
-Lacic, E., Kowald, D., & Lex, E. (2016). arXiv:1604.00942  
+Chaudhary, A., & Risinahani, M. (2023). Airline reviews. Kaggle.Lacic, E., Kowald, D., & Lex, E. (2016). arXiv:1604.00942 
 Srinivas, S., & Ramachandiran, S. (2020). arXiv:2012.08000  
 Yakut, I., et al. (2015). arXiv:1512.03632
 
