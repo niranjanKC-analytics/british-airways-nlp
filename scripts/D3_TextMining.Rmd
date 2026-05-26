@@ -1,0 +1,512 @@
+---
+title: "CIS 428 Text Mining D3"
+author: "Team 3"
+date: "2026-04-21"
+output: pdf_document
+---
+Three Text Mining Methods for classification, & one for topic modeling are used here.
+First classification using Naive Bayes.
+```{r}
+
+#load required packages
+library(tidyverse)
+library(tm)
+library(e1071)
+library(gmodels)
+library(wordcloud)
+
+# 1. LOAD DATASET.
+# Load your cleaned dataset
+data <- read.csv("BA_Reviews_Cleaned.csv", stringsAsFactors = FALSE)
+# Check structure
+str(data)
+summary(data)
+
+# Select only required columns (adjust column names if needed)
+data <- data %>%
+  select(Review, Sentiment) %>%
+  na.omit()
+
+View(data)
+# Rename columns to better names.
+names(data) <- c("text", "score")
+
+# Convert score to factor
+data$score <- factor(data$score)
+
+# Check distribution
+table(data$score)
+```
+The clean dataset was loaded and only the two required columns were selected: Review & Sentiment. Column names were changed and factored.
+
+```{r}
+# 2. CREATE CORPUS
+corpus <- VCorpus(VectorSource(data$text))
+
+# Create Document-Term Matrix (DTM)
+dtm <- DocumentTermMatrix(corpus, control = list(
+  tolower = TRUE,
+  removeNumbers = TRUE,
+  stopwords = TRUE,
+  removePunctuation = TRUE,
+  stemming = TRUE
+))
+inspect(dtm)
+
+# Splitting Data into Train & Test 80/20.
+
+m <- nrow(data)
+
+train_data <- data[1:round(.8 * m), ]
+test_data  <- data[(round(.8 * m) + 1):m, ]
+
+train_labels <- train_data$score
+test_labels  <- test_data$score
+
+# Create WordCloud.
+positive <- subset(train_data, score == "Positive")
+negative <- subset(train_data, score == "Negative")
+
+wordcloud(positive$text, max.words = 40, scale = c(3, 0.5))
+wordcloud(negative$text, max.words = 40, scale = c(3, 0.5))
+
+```
+A Corpus was created.Then a dtm. After that train and test data were divided into 80:20- labels were also trained
+similarly for the original data.. Wordcloud was made based on score being "positive" or "negative."
+
+```{r}
+# 3. SPLIT DTM. Train & Test Naive Bayes Model
+
+n <- nrow(dtm)
+
+dtm_train <- dtm[1:round(.8 * n), ]
+dtm_test  <- dtm[(round(.8 * n) + 1):n, ]
+
+# Convert Counts to Binary
+convert_counts <- function(x) {
+  x <- ifelse(x > 0, "Yes", "No")
+  }
+train_binary <- apply(dtm_train, MARGIN = 2, convert_counts)
+test_binary  <- apply(dtm_test, MARGIN = 2, convert_counts)
+
+# Train Naive Bayes Model
+nb_model <- naiveBayes(as.matrix(train_binary), train_labels)
+
+# Prediction
+nb_pred <- predict(nb_model, as.matrix(test_binary))
+
+```
+DTM was split and counts converted to binary. Then a model was made using naive bayes and used for predicting.
+
+```{r}
+# Evaluation with Confusion Matrix
+CrossTable(nb_pred, test_labels,
+           prop.chisq = FALSE,
+           prop.t = FALSE,
+           prop.r = FALSE,
+           dnn = c("Predicted", "Actual"))
+
+#Laplace Smoothing
+nb_model_laplace <- naiveBayes(as.matrix(train_binary), train_labels, laplace = 1)
+
+nb_pred_laplace <- predict(nb_model_laplace, as.matrix(test_binary))
+
+CrossTable(nb_pred_laplace, test_labels,
+           prop.chisq = FALSE,
+           prop.t = FALSE,
+           prop.r = FALSE,
+           dnn = c("Predicted", "Actual"))
+
+```
+Evaluation was done with crosstable. The result of confusion matrix shows that:
+Of the 247 actual Negative reviews, 135 (54.7%) were correctly predicted as Negative
+Of the 111 actual Neutral reviews, 31 (27.9%) were incorrectly predicted as Negative
+Of the 382 actual Positive reviews, 14 (3.7%) were incorrectly predicted as Negative.
+Laplace smoothing didn't help with probability, predicting 739/740 as neutral.
+
+Now, using second classification algorithm, KNN.
+```{r}
+# 1. Data loading process.
+# Load required libraries
+library(tm)        # Text preprocessing
+library(class)     # KNN model
+library(caret)     # Data splitting and evaluation
+library(dplyr)     # Data manipulation
+
+# 1. LOAD DATASET 
+# Load cleaned dataset
+data <- read.csv("BA_Reviews_Cleaned.csv", stringsAsFactors = FALSE)
+
+# Select only required columns (adjust column names)
+data <- data %>%
+  select(Review, Sentiment) %>%
+  na.omit()
+
+# Rename columns to better names
+names(data) <- c("text", "score")
+
+# Convert score to factor
+data$score <- factor(data$score)
+
+# Check distribution
+table(data$score)
+
+```
+
+
+
+```{r}
+# 2. TEXT PREPROCESSING FOR KNN ()
+# Convert text messages to corpus
+corpus <- VCorpus(VectorSource(data$text))
+
+# Apply text transformations
+corpus <- tm_map(corpus, content_transformer(tolower))      # Convert to lowercase
+corpus <- tm_map(corpus, removePunctuation)                  # Remove punctuation
+corpus <- tm_map(corpus, removeNumbers)                      # Remove numbers
+corpus <- tm_map(corpus, removeWords, stopwords("english"))  # Remove stopwords
+corpus <- tm_map(corpus, stripWhitespace)                    # Remove extra spaces
+
+# Remove custom words (add any domain-specific words to remove) (opt.)
+custom_stopwords <- c("british", "airways", "flight", "ba")
+corpus <- tm_map(corpus, removeWords, custom_stopwords)
+
+# Convert corpus to Document-Term Matrix (DTM)
+dtm <- DocumentTermMatrix(corpus)
+
+# Remove sparse terms (adjust threshold as needed)
+
+dtm <- removeSparseTerms(dtm, 0.99)  # Keeps terms appearing in at least 1% of docs
+# 
+
+# Convert DTM to a data frame
+data_matrix <- as.data.frame(as.matrix(dtm))
+
+# Add labels back to the dataset
+data_matrix$score <- data$score
+
+# Check the dimensions of the feature matrix
+cat("Feature matrix dimensions:", dim(data_matrix), "\n")
+cat("Number of features (words):", ncol(data_matrix) - 1, "\n")
+# View(data_matrix)
+```
+A corpus was created. Then text transformations were performed on the data which was obtained pre-processed earlier. 
+Custom stop words not necessary for sentiment analysis were removed. After that, it was converted to dtm and, terms appearing in less than 1% of documents were removed to reduce dimensionality.
+
+```{r}
+#3. SPLIT DATA INTO TRAINING AND TESTING SETS
+set.seed(123)  # For reproducibility
+trainIndex <- createDataPartition(data_matrix$score, p = 0.8, list = FALSE)
+trainData <- data_matrix[trainIndex, ]
+testData <- data_matrix[-trainIndex, ]
+
+# Extract features and labels
+train_text <- trainData[, -ncol(trainData)]  # All columns except last (score)
+train_labels <- trainData$score
+
+test_text <- testData[, -ncol(testData)]
+test_labels <- testData$score
+
+#scale data.
+train_text <- scale(train_text)
+test_text  <- scale(test_text)
+
+```
+Data was split into training and testing sets 80/20. Features and labels were extracted and scaled.
+
+```{r}
+# 4. TRAIN AND EVALUATE KNN WITH DIFFERENT K VALUES
+
+# Method 1: Simple KNN with k=5
+knn_pred_k5 <- knn(train = train_text, 
+                   test = test_text, 
+                   cl = train_labels, 
+                   k = 5)
+
+# Evaluate k=5 model
+conf_matrix_k5 <- table(Predicted = knn_pred_k5, Actual = test_labels)
+print("Confusion Matrix for k=5:")
+print(conf_matrix_k5)
+
+accuracy_k5 <- sum(diag(conf_matrix_k5)) / sum(conf_matrix_k5)
+cat("Model Accuracy (k=5):", round(accuracy_k5 * 100, 2), "%\n")
+
+```
+Using k = 5 model, accuracy was found to be 59.62% in this model.
+
+
+```{r}
+# 4.
+# Method 2: Cross-validation to find optimal k
+# Create trainControl object for cross-validation
+train_control <- trainControl(method = "cv",       # Cross-validation method
+                              number = 10,         # 10-fold cross-validation
+                              search = "grid",     # Search through the specified grid
+                              verboseIter = FALSE) # Set to TRUE to see progress
+
+# Set the grid for hyperparameter tuning (try different k values)
+tune_grid <- expand.grid(k = c(3, 5, 7, 9, 11, 15, 21, 31))
+
+# KNN can be slow with large feature sets
+# So, scaling features for better performance
+knn_model <- train(x = train_text,                    # Features for training
+                   y = train_labels,                  # Labels for training
+                   method = "knn",                    # KNN algorithm
+                   trControl = train_control,         # Cross-validation control
+                   tuneGrid = tune_grid,              # Grid search for 'k'
+                   preProcess = c("center", "scale"), # Preprocessing: centering and scaling
+                   metric = "Accuracy")               # Metric for model evaluation
+
+# Print the trained model details
+print(knn_model)
+
+# Plot accuracy vs k value
+plot(knn_model, main = "KNN Accuracy by k Value")
+
+# Get the best k value
+best_k <- knn_model$bestTune$k
+cat("\nBest k value from cross-validation:", best_k, "\n")
+cat("Best accuracy:", round(max(knn_model$results$Accuracy) * 100, 2), "%\n")
+
+# Make predictions with the best tuned model
+knn_pred_best <- predict(knn_model, newdata = test_text)
+
+# Evaluate best model
+conf_matrix_best <- table(Predicted = knn_pred_best, Actual = test_labels)
+print("Confusion Matrix for Best Model:")
+print(conf_matrix_best)
+
+accuracy_best <- sum(diag(conf_matrix_best)) / sum(conf_matrix_best)
+cat("Best Model Accuracy:", round(accuracy_best * 100, 2), "%\n")
+
+```
+
+Cross-Validation method was used to find optimal k value. A plot was made that showed KNN accuracy by k value. Best K value was
+found to be 3, with accuracy of 56.16%. Then, the best tuned model was evaluated. After that the best model accuracy was determined.
+
+The third classification algorithm in use is Lexicon Based Sentiment Analysis. 
+
+```{r}
+# LEXICON BASED SENTIMENT ANALYSIS
+
+# Data and Packages loading step.
+# Use "BA_Reviews_Cleaned.csv" dataset.
+
+library(tidytext)
+library(textdata)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Load cleaned dataset 
+data <- read.csv("BA_Reviews_Cleaned.csv", stringsAsFactors = FALSE)
+
+# Select columns
+data <- data %>%
+  select(Review, Sentiment) %>%
+  na.omit()
+
+# Rename
+names(data) <- c("text", "score")
+
+# Add ID for each review
+data <- data %>%
+  mutate(id = row_number())
+
+# Tokenize
+tidy_reviews <- data %>%
+  unnest_tokens(word, text)
+
+#remove stopwords.
+tidy_reviews <- tidy_reviews %>%
+  anti_join(stop_words, by = "word")
+View(tidy_reviews)
+str(tidy_reviews)
+
+custom_stopwords <- data.frame(
+  word = c("flight", "british", "airways", "ba", "airline",
+           "london", "heathrow", "just", "also", "really",
+           "one", "get", "got", "time", "will")
+)
+tidy_reviews <- tidy_reviews %>%
+  anti_join(custom_stopwords, by = "word")
+
+```
+The dataset was tokenized cleaned by removing stop words. 
+
+
+
+```{r}
+
+sentiments
+get_sentiments("afinn")
+get_sentiments("bing")
+get_sentiments("nrc")
+
+# BING SENTIMENT 
+bing_sentiment <- tidy_reviews %>%
+  inner_join(get_sentiments("bing"), by = "word") %>%
+  count(id, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+# AFINN SENTIMENT
+afinn_sentiment <- tidy_reviews %>%
+  inner_join(get_sentiments("afinn"), by = "word") %>%
+  group_by(id) %>%
+  summarise(sentiment = sum(value), .groups = "drop") %>%
+  mutate(method = "AFINN")
+
+# NRC SENTIMENT
+nrc_sentiment <- tidy_reviews %>%
+  inner_join(get_sentiments("nrc"), by = "word") %>%
+  filter(sentiment %in% c("positive", "negative")) %>%
+  count(id, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative,
+         method = "NRC")
+
+```
+Three sentiments were applied to the tidy token data.
+
+
+```{r}
+# COMBINE ALL METHODS
+combined_sentiment <- bind_rows(
+  afinn_sentiment,
+  bing_plot,
+  nrc_sentiment
+)
+
+# Plot comparison
+ggplot(combined_sentiment, aes(id, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y") +
+  labs(title = "Sentiment Comparison Across Methods")
+
+# WORD CLOUD 
+
+library(wordcloud)
+
+tidy_reviews %>%
+  anti_join(stop_words) %>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, max.words = 100))
+
+
+
+```
+
+The results of all three methods was plotted in a side by side bar plot.
+Then, word cloud showed most common words excluding stop words.
+
+2. Text mining method- Topic Modeling using LDA 
+
+```{r}
+# Data preprocessing step.
+# Load required libraries
+library(tm)
+library(topicmodels)
+library(tidytext)
+library(dplyr)
+library(ggplot2)
+
+# 1. LOAD DATASET
+data <- read.csv("BA_Reviews_Cleaned.csv", stringsAsFactors = FALSE)
+
+# Select required columns
+data <- data %>%
+  select(Review, Sentiment) %>%
+  na.omit()
+
+# Rename columns
+names(data) <- c("text", "score")
+
+# 2. CREATE CORPUS & DTM
+corpus <- VCorpus(VectorSource(data$text))
+
+# Text preprocessing
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+corpus <- tm_map(corpus, stripWhitespace)
+
+# Create DTM
+dtm <- DocumentTermMatrix(corpus)
+
+# Remove sparse terms
+dtm <- removeSparseTerms(dtm, 0.99)
+
+# Remove empty rows
+rowTotals <- apply(dtm, 1, sum)
+dtm <- dtm[rowTotals > 0, ]
+
+```
+
+```{r}
+# 3. BUILD LDA MODEL
+# Set number of topics (adjust if needed)
+k <- 3
+lda_model <- LDA(dtm, k = k, control = list(seed = 123))
+
+# 4. VIEW TOP TERMS PER TOPIC
+topics <- terms(lda_model, 10)  # top 10 words per topic
+print(topics)
+
+```
+Topic 1 labelled as : Overall, flight experience and service quality.
+Topic 2 labelled as : Airline Operations & Business Class Experience.
+Topic 3 labelled as : Airport Experience, Seating & Travel Time.
+
+Some common terms such as ‘flight’ appeared across multiple topics, indicating their general importance across all reviews rather than topic-specific relevance.
+
+
+```{r}
+# 5. TIDY FORMAT FOR VISUALIZATION
+tidy_lda <- tidy(lda_model, matrix = "beta")
+
+top_terms <- tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+# Plot top words per topic
+ggplot(top_terms, aes(x = reorder_within(term, beta, topic), 
+                      y = beta, 
+                      fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(title = "Top Terms per Topic",
+       x = "Terms",
+       y = "Probability")
+
+# 6. DOCUMENT-TOPIC DISTRIBUTION
+
+doc_topics <- tidy(lda_model, matrix = "gamma")
+
+head(doc_topics, 25)
+
+```
+Output from gamma implies that each document was associated with multiple topics with varying probabilities. It indicates
+that reviews often discuss multiple aspects of the flight experience.
+
+
+```{r}
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
